@@ -11,7 +11,7 @@ def add():
     a = request.args.get('a', type=float)
     b = request.args.get('b', type=float)
     if a is not None and b is not None:
-        res = a + b + 1
+        res = a + b
         save_last("add", (a, b), res)
         return make_response(jsonify(s=res), 200) #HTTP 200 OK
     else:
@@ -127,8 +127,10 @@ def save_last(op,args,res):
     else:
         timestamp = time.time()
         payload = {'timestamp': timestamp, 'op': op, 'args': args, 'res': res}
-        requests.post('http://db-manager:5000/notify', json=payload)
-        
+        try:
+            requests.post('http://db-manager:5000/notify', json=payload, timeout=1)
+        except Exception:
+            pass
 
 if __name__ == '__main__':
     app.run(debug=True)
