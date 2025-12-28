@@ -282,7 +282,7 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "https://localhost:5001/random?a=1&b=10",
+					"raw": "http://localhost:5001/random?a=1&b=10",
 					"host": [
 						"localhost"
 					],
