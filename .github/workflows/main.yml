@@ -33,13 +33,25 @@ jobs:
       - name: Run calc container (isolated)
         run: docker run -d --name calc_ci -p 5001:5000 calc:ci
 
+      - name: Wait for calc to be ready
+        run: |
+          for i in {1..30}; do
+            if curl -sSf "http://localhost:5001/add?a=1&b=1" >/dev/null; then
+              echo "Calc is up!"
+              exit 0
+            fi
+            echo "Waiting for calc..."
+            sleep 1
+          done
+          docker logs calc_ci || true
+          exit 1
+
       - name: Newman - calc unit tests (isolated)
         run: newman run tests/calc_ut.postman_collection.json --env-var "baseUrl=http://localhost:5001"
-      
+
       - name: Stop calc container (always)
         if: always()
-        run: |
-          docker rm -f calc_ci || true
+        run: docker rm -f calc_ci || true
 
       # ----------------------------
       # 2) STRING in isolation
@@ -50,43 +62,49 @@ jobs:
       - name: Run string container (isolated)
         run: docker run -d --name string_ci -p 5002:5000 string:ci
 
+      - name: Wait for string to be ready
+        run: |
+          for i in {1..30}; do
+            if curl -sSf "http://localhost:5002/upper?a=test" >/dev/null; then
+              echo "String is up!"
+              exit 0
+            fi
+            echo "Waiting for string..."
+            sleep 1
+          done
+          docker logs string_ci || true
+          exit 1
+
       - name: Newman - string unit tests (isolated)
         run: newman run tests/string_ut.postman_collection.json --env-var "baseUrl=http://localhost:5002"
 
       - name: Stop string container (always)
         if: always()
-        run: |
-          docker rm -f string_ci || true
+        run: docker rm -f string_ci || true
 
       # ----------------------------
-      # 3) Whole architecture (compose)
+      # 3) Whole architecture
       # ----------------------------
       - name: Build + start full stack (docker compose)
-        run: |
-          docker compose -f src/docker-compose.yml up -d --build
+        run: docker compose -f src/docker-compose.yml up -d --build
 
       - name: Wait for gateway to be ready
         run: |
-          for i in {1..30}; do
-            if curl -sSf http://localhost:5000/ >/dev/null; then
+          for i in {1..60}; do
+            if curl -sSf "http://localhost:5000/calc/add?a=1&b=1" >/dev/null; then
               echo "Gateway is up!"
               exit 0
             fi
             echo "Waiting for gateway..."
             sleep 2
           done
-          echo "Gateway never became ready" >&2
           docker compose -f src/docker-compose.yml ps
+          docker compose -f src/docker-compose.yml logs --no-color | tail -200
           exit 1
 
-      # ----------------------------
-      # 4) Integration tests against gateway
-      # ----------------------------
       - name: Newman - integration tests (gateway)
-        run: |
-          newman run tests/integration.postman_collection.json --env-var "baseUrl=http://localhost:5000"
+        run: newman run tests/integration.postman_collection.json --env-var "baseUrl=http://localhost:5000"
 
       - name: Shutdown full stack (always)
         if: always()
-        run: |
-          docker compose -f src/docker-compose.yml down -v || true
+        run: docker compose -f src/docker-compose.yml down -v || true
