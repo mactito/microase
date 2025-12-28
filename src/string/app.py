@@ -9,7 +9,7 @@ def concat():
     a = request.args.get('a', type=str)
     b = request.args.get('b', type=str)
     if a is not None and b is not None:
-        res = b + a
+        res = a + b
         save_last("concat",(a,b),res)
         return make_response(jsonify(s=res), 200)
     else:
@@ -69,7 +69,10 @@ def save_last(op,args,res):
     else:
         timestamp = time.time()
         payload = {'timestamp': timestamp, 'op': op, 'args': args, 'res': res}
-        requests.post('http://db-manager:5000/notify', json=payload)
+        try:
+            requests.post('http://db-manager:5000/notify', json=payload, timeout=1)
+        except requests.RequestException:
+            pass
 
 if __name__ == '__main__':
     app.run(debug=True)
